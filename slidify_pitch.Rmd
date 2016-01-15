@@ -1,0 +1,122 @@
+---
+title       : Ellipse tangent
+subtitle    : Coursera - Data Products class
+author      : Guillaume Bourgault
+job         : 
+framework   : io2012        # {io2012, html5slides, shower, dzslides, ...}
+highlighter : highlight.js  # {highlight.js, prettify, highlight}
+hitheme     : tomorrow      # 
+widgets     : [mathjax]            # {mathjax, quiz, bootstrap}
+mode        : selfcontained # {standalone, draft}
+knit        : slidify::knit2slides
+---
+
+## Project motivation
+I recently started to learn how to draw, and one of the things I find hard is to draw realistic ellipses.  They come up often, because there are so many round objects in our surroundings: glasses, candles, chair bars, lamps, etc.  When they are seen at an angle, in 2D, they appear as ellipses.  
+
+To help me, I figured out this procedure:
+
+1. Find what is the width-to-height ratio of the ellipse
+2. Draw the 4 extremities of the ellipse
+3. Find where is the point, relative to the extremities, where the tangent is at 45 degrees.
+4. Draw a very short segment at a 45 degree angle relative to the vertical.  
+5. Play connect the dots with a smooth curve.  
+
+---
+## Drawing an ellipse: not that easy!
+After doing the 5 steps described, things look like this on my sketching pad.  
+I was always surprized to see how close to the tip the 45 degree tangent point was.  
+I decided to investigate the relationship between the position of this point as a function of the width-to-ratio and the angle of the tangent chosen.  
+```{r, echo = FALSE, warning=FALSE, quietly=TRUE}
+library(aspace)
+library(dplyr)
+ellipse_y <- function(a, x) {
+  return(sqrt(1-(x/a)**2))
+}
+x_y_from_angle <- function(a, theta) {
+  x <- tan(as_radians(theta))*a*((1/a**2)+(tan(as_radians(theta)))**2)**-.5
+  y <- ellipse_y(a, x)
+  return(list(x = x, y = y))
+}
+theta = 45
+a = 2.
+x_y <- x_y_from_angle(a, theta)
+df1 <- data.frame(x = c(a, x_y$x, 0, -x_y$x, -a))
+df1 <- mutate(df1, y = ellipse_y(a, x))
+df2 <- data.frame(x = c(a, x_y$x, 0, -x_y$x, -a))
+df2 <- mutate(df2, y = -ellipse_y(a, x))
+df <- rbind(df1, df2)
+plot(df, asp = 1, axes=FALSE, frame.plot=TRUE, xlab = '', ylab = '')
+```
+
+---
+## A bit of math
+The equation of an ellipse, centered at (0,0) is:
+$$\frac{x^2}{a^2} + \frac{y^2}{b^2} = 1$$
+To simplify the equation, we assume b = 1.  The first step is to express y = f(x).  
+$$y = f(x) = \sqrt{1-\frac{x^2}{a^2}}$$
+We then find the derivative of y = f(x), and equal it to tan(theta).
+$$\frac{\mathrm{d} y}{\mathrm{d} x} = -\frac{x}{a^{2}\sqrt{1-\frac{x^{2}}{a^{2}}}} = tan(\theta)$$ 
+It is now possible to express x as a function of theta and a:
+$$x = \frac{a\cdot tan(\theta)}{\sqrt{\frac{1}{a^{2}}+tan^{2}\theta}}$$
+
+---
+## Shiny app
+The application contains two sliders, one for a and one for theta.  
+The output uses a reactive plotting feature, yealding a graph that updates each time a or theta are changed on the sliders.  Have fun!
+
+```{r, echo = FALSE, warning=FALSE, quietly=TRUE}
+ellipse_with_tangent <- function(a, theta) {
+  #plots the ellipse and a tangent.  
+  ellipse_points <- ellipse(a)
+  intercept <- intercepts(a, theta)
+  max_y = intercept[1, 'y']*1.05
+  plot(ellipse_points, type = 'l', asp = 1, 
+       xlab = '', 
+       ylab = '', 
+       xlim = c(-max_a, max_a), 
+       ylim = c(-max_y, max_y), 
+       axes = TRUE)
+  lines(intercept)
+  lines(intercept[c(1,2,2),'x'], intercept[c(2,2,3),'y'])
+  lines(c(-max_a, max_a), c(0,0))
+  lines(c(0,0), c(-max_y, max_y))
+  title('An ellipse and its tangent')
+}
+intercepts <- function(a, theta) {
+  #Calculates where the tangent of an ellipse intercepts the x and y axis. 
+  x_y <- x_y_from_angle(a, theta)
+  x <- c(0, x_y$x, x_y$x + x_y$y/tan(as_radians(theta)))
+  y <- c(x_y$y + x_y$x*tan(as_radians(theta)), x_y$y, 0)
+  return(data.frame(x, y))
+}
+ellipse <- function(a) {
+  #builds the points on an ellipse of width-to-ratio a.  
+  nb_points <- 1000
+  df1 <- data.frame(list(x = seq(-a, a, a/nb_points)))
+  df1 <- mutate(df1, y = ellipse_y(a, x))
+  df2 <- data.frame(list(x = seq(-a, a, a/nb_points)))
+  df2 <- mutate(df2, y = -ellipse_y(a, x))
+  df <- rbind(df1, df2)
+  return(df)
+}
+ellipse_with_tangent <- function(a, theta) {
+  #plots the ellipse and a tangent.  
+  ellipse_points <- ellipse(a)
+  intercept <- intercepts(a, theta)
+  max_y = intercept[1, 'y']*1.05
+  plot(ellipse_points, type = 'l', asp = 1, 
+       xlab = '', 
+       ylab = '', 
+       xlim = c(-max_a, max_a), 
+       ylim = c(-max_y, max_y), 
+       axes = TRUE)
+  lines(intercept)
+  lines(intercept[c(1,2,2),'x'], intercept[c(2,2,3),'y'])
+  lines(c(-max_a, max_a), c(0,0))
+  lines(c(0,0), c(-max_y, max_y))
+  title('An ellipse and its tangent')
+}
+max_a = 4.
+ellipse_with_tangent(a, theta)
+```
